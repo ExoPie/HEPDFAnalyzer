@@ -38,15 +38,12 @@ def getrecoil(nEle,elept,elephi,elepx_,elepy_,met_,metphi_):
         dphi = DeltaPhi(elephi,metphi_)
 
         MT = numpy.sqrt( 2 * elept * met * (1.0 - numpy.cos(dphi)) )
-        #MT = numpy.sqrt( 2 * elept * met )
-
-        #We_mass = MT(elept[0],met_, DeltaPhi(elephi[0],metphi_)) #transverse mass defined as sqrt{2pT*MET*(1-cos(dphi)}
         WenuRecoilPx = -( met_*numpy.cos(metphi_) + elepx_)
         WenuRecoilPy = -( met_*numpy.sin(metphi_) + elepy_)
         WenuRecoilPt = numpy.sqrt(WenuRecoilPx**2  +  WenuRecoilPy**2)
         WenurecoilPhi = numpy.arctan2(WenuRecoilPx,WenuRecoilPy)
     return WenuRecoilPt, WenurecoilPhi, MT
-
+    
 
 
 
@@ -65,7 +62,7 @@ def getMinimum(x):
 def countTrue(x):
     if len(x)>0: return numpy.sum(x)
 
-nevent=100000
+nevent=1000000
 
 total_events = len(tree_ )
 print ("total events: ", total_events)
@@ -92,6 +89,7 @@ for i in range (steps):
                                                                                  entrystart = entrystart, entrystop=entrystop, outputtype=tuple)
     
     
+    #for ilumi in lumi: print ilumi
     ## muons 
     mupt, mueta, muphi = getpt_eta_phi(mupx, mupy,mupz)
     mu_sel = (mupt>30) & (muid==True) 
@@ -111,7 +109,7 @@ for i in range (steps):
     
     
     ## b-jets 
-    bjet_m = (jetdeepcsv>0.6321)
+    bjet_m = (jetdeepcsv>0.6321) & (numpy.abs(jeteta)<2.4)
     nbjet_m = bjet_m.sum()
     
     ## recoil 
@@ -188,6 +186,7 @@ for i in range (steps):
         Wmunu1b_df[ivar] = Wmunu1b_df.apply(lambda x: getMinimum(x[ivar]), axis=1)
     
     
+    
     ## W(mu)+1b CR     
     Wmunu1b_sel   =  Wmunu1b_df[(Wmunu1b_df.mettrig) & 
                                 (Wmunu1b_df.Nele==0) & 
@@ -199,8 +198,9 @@ for i in range (steps):
                                 (Wmunu1b_df.dphi_jet_met > 0.5) &
                                 (Wmunu1b_df.MT_Wmu1b>0) & (Wmunu1b_df.MT_Wmu1b<160) & 
                                 (Wmunu1b_df.nbjet_m==1) & 
-                                (Wmunu1b_df.nJet==1) &
-                                (met>100.)]
+                                (Wmunu1b_df.nJet==1)#&
+                                #(Wmunu1b_df.met>100.)
+    ]
     
     
     Wmunu2b_sel   =  Wmunu1b_df[(Wmunu1b_df.mettrig) &
@@ -213,8 +213,9 @@ for i in range (steps):
                                 (Wmunu1b_df.dphi_jet_met > 0.5) &
                                 (Wmunu1b_df.MT_Wmu1b>0) & (Wmunu1b_df.MT_Wmu1b<160) &
                                 (Wmunu1b_df.nbjet_m==2) &
-                                (Wmunu1b_df.nJet==2) & 
-                                (met>100.)]
+                                (Wmunu1b_df.nJet==2) #& 
+                                #(Wmunu1b_df.met>100.)
+    ]
     
     import root_pandas 
     
