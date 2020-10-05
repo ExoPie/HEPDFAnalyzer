@@ -12,14 +12,6 @@ tree_ = uproot.open("Merged_WJetsInclusiveSkim.root")["outTree"]
 
 from utils import *
 
-nevent=1000000
-
-total_events = len(tree_ )
-print ("total events: ", total_events)
-
-entrystart=0
-entrystop=0
-
 ieve=0
 def getCleanedNumber(eta1, eta2, phi1, phi2):
     print "inside getCleanedNumber", ieve
@@ -33,7 +25,7 @@ def getCleanedNumber(eta1, eta2, phi1, phi2):
             dr_.append(dr)
     return len(dr_)
 
-def deltaR(phoeta, jeteta, phophi, jetphi):
+def deltaR(phoeta, jeteta, phophi, jetphi, cut_=0.4):
     
     phoeta_unzip, jeteta_unzip = phoeta.cross(jeteta, nested=True).unzip()
     phophi_unzip, jetphi_unzip = phophi.cross(jetphi, nested=True).unzip()
@@ -42,41 +34,61 @@ def deltaR(phoeta, jeteta, phophi, jetphi):
     dphi_unzip = phophi_unzip - jetphi_unzip
     
     dr_unzip = numpy.sqrt(deta_unzip**2 + dphi_unzip**2)
-    dr_pho_jet_status = (dr_unzip<0.4).any() ## use axis in new version of awkward 
+    dr_pho_jet_status = (dr_unzip<cut_).any() ## use axis in new version of awkward 
     return dr_pho_jet_status
     
     
 
-steps = (total_events/nevent)+1
 df_total_wmunu1b = pd.DataFrame()
 df_total_wmunu2b = pd.DataFrame()
+df_total_wenu1b = pd.DataFrame()
+df_total_wenu2b = pd.DataFrame()
+
+nevent=1000000
+total_events = len(tree_ )
+entrystart=0
+entrystop=0
+steps = (total_events/nevent)
+if total_events%nevent > 0: steps=steps+1
+print ("total events: steps:", total_events, steps)
+
 for i in range (steps): 
     entrystart=i*nevent
     entrystop=(i+1)*nevent
 
     ## event 
-    run, lumi, event, met, metphi, mettrig, nmuloose, mupx, mupy, mupz, mue, muid, elepx, elepy, elepz, elee,elelooseid, \
-        ntau, npho, phopx, phopy, phopz, phoe, njet, jetpx, jetpy, jetpz, jete, jetdeepcsv   = tree_.arrays(["st_runId", "st_lumiSection", "st_eventId", 
-                                                                                    "st_pfMetCorrPt","st_pfMetCorrPhi","st_mettrigdecision",
-                                                                                    "st_nMu","st_muPx", "st_muPy", "st_muPz", "st_muEnergy","st_isTightMuon",
-                                                                                    "st_elePx", "st_elePy", "st_elePz", "st_eleEnergy","st_eleIsPassLoose",
-                                                                                    "st_nTau_discBased_TightEleTightMuVeto","st_nPho", "st_phoPx","st_phoPy","st_phoPz","st_phoEnergy",
-                                                                                    "st_THINnJet", "st_THINjetPx", "st_THINjetPy", "st_THINjetPz", "st_THINjetEnergy", "st_THINjetDeepCSV"], 
-                                                                                    entrystart = entrystart, entrystop=entrystop, outputtype=tuple)
+    run, lumi, event,\
+        eletrig,\
+        met, metphi, mettrig, \
+        nmuloose, mupx, mupy, mupz, mue, muid, \
+        elepx, elepy, elepz, elee,elelooseid, eletightid, elecharge, \
+        ntau, npho, phopx, phopy, phopz, phoe, \
+        njet, jetpx, jetpy, jetpz, jete, jetdeepcsv   = tree_.arrays(["st_runId", "st_lumiSection", "st_eventId",
+                                                                      "st_eletrigdecision",
+                                                                      "st_pfMetCorrPt","st_pfMetCorrPhi","st_mettrigdecision",
+                                                                      "st_nMu","st_muPx", "st_muPy", "st_muPz", "st_muEnergy","st_isTightMuon",
+                                                                      "st_elePx", "st_elePy", "st_elePz", "st_eleEnergy","st_eleIsPassLoose",'st_eleIsPassTight', 'st_eleCharge',
+                                                                      "st_nTau_discBased_TightEleTightMuVeto","st_nPho", "st_phoPx","st_phoPy","st_phoPz","st_phoEnergy",
+                                                                      "st_THINnJet", "st_THINjetPx", "st_THINjetPy", "st_THINjetPz", "st_THINjetEnergy", "st_THINjetDeepCSV"], 
+                                                                     entrystart = entrystart, entrystop=entrystop, outputtype=tuple)
     
     
     #for ilumi in lumi: print ilumi
     ## muons 
     mupt, mueta, muphi = getpt_eta_phi(mupx, mupy,mupz)
     mu_sel = (mupt>30) & (muid==True) 
-    mu_sel_count = mu_sel.sum() ## this gives total number of true, which infact is the total number of selected muons 
+    mu_sel_tight_count = mu_sel.sum() ## this gives total number of true, which infact is the total number of selected muons 
     
     
     ## electrons 
     elept, eleeta, elephi = getpt_eta_phi(elepx, elepy, elepz)
     ele_sel = (elept>10.) & (elelooseid==True)
     ele_sel_count = ele_sel.sum()
+    ele_sel_tight_count = ((elept>30.) & (eletightid==True)).sum()
     
+    #print ("eletightid: ", sum(ele_sel_tight_count.tolist()))
+    
+    #print ("ele_sel_tight_count: ",ele_sel_tight_count.tolist())
     
     ## jets 
     jetpt, jeteta, jetphi = getpt_eta_phi(jetpx, jetpy, jetpz)
@@ -85,8 +97,7 @@ for i in range (steps):
     
     jet_sel_pt30 = (jetpt>30) & (numpy.abs(jeteta)<2.5)
     jet_sel_pt30_count = jet_sel_pt30.sum()
-    
-    
+
     ## b-jets 
     bjet_m = (jetdeepcsv>0.6321) & (numpy.abs(jeteta)<2.4)
     nbjet_m = bjet_m.sum()
@@ -99,8 +110,9 @@ for i in range (steps):
     
     
     ## recoil 
-    recoil_Wmu1b, recoilphi_Wmu1b, MT_Wmu1b =  getrecoil(mu_sel_count,mupt,muphi,mupx,mupy,met,metphi)
-    
+    recoil_Wmu1b, recoilphi_Wmu1b, MT_Wmu1b =  getrecoil(mu_sel_tight_count,mupt,muphi,mupx,mupy,met,metphi)
+    recoil_We1b, recoilphi_We1b, MT_We1b    =  getrecoil(ele_sel_tight_count,elept,elephi,elepx,elepy,met,metphi)
+
     
     ## dphi 
     dphi_jet_met = DeltaPhi(jetphi, metphi)
@@ -114,18 +126,20 @@ for i in range (steps):
         'event':event,
         ## MET
         "mettrig":mettrig,
+        "eletrig":eletrig,
         "met":met,
         "metphi":metphi,
         ## muons 
         "NmuLoose":nmuloose,
-        "Nmu":mu_sel_count,
+        "Nmu":mu_sel_tight_count,
         "mu_sel":mu_sel,
         "mupt":mupt, 
         "mueta":mueta,
         "muphi":muphi,
         "muid":muid,
         ## ele
-        "Nele":ele_sel_count,
+        "NeleLoose":ele_sel_count,
+        "Nele":ele_sel_tight_count,
         "elept":elept,
         "eleeta":eleeta,
         "elephi":elephi,
@@ -134,6 +148,11 @@ for i in range (steps):
         "recoil_Wmu1b":recoil_Wmu1b,
         "recoilphi_Wmu1b":recoilphi_Wmu1b,
         "MT_Wmu1b":MT_Wmu1b,
+        
+        "recoil_We1b":recoil_We1b,
+        "recoilphi_We1b":recoilphi_We1b,
+        "MT_We1b":MT_We1b,
+        
         # jets 
         "nJet30":jet_sel_pt30_count,
         "nJet":jet_sel_count,
@@ -160,9 +179,8 @@ for i in range (steps):
         
     })
     
-    print (len(mupt), len(mueta), len(muphi), len(mettrig), len(muid))
     
-    common_df["ncleanPho"] = 1
+    #common_df["ncleanPho"] = 1
     '''
     phoeta_unzip, jeteta_unzip = phoeta.cross(jeteta, nested=True).unzip()
     phophi_unzip, jetphi_unzip = phophi.cross(jetphi, nested=True).unzip()
@@ -174,12 +192,13 @@ for i in range (steps):
     dr_pho_jet_status = (dr_unzip<0.4).any() ## use axis in new version of awkward 
     '''
     
-    
-    common_df["dr_pho_mu_status"] = (deltaR(phoeta, mueta, phophi, muphi)).sum()
-    common_df["dr_pho_ele_status"] = (deltaR(phoeta, eleeta, phophi, elephi)).sum()
-    
-    
-    #common_df["ncleanPho"] = common_df.apply(lambda x: getCleanedNumber(x["phoeta"], x["jeteta_sel_pt30"], x["phophi"], x["jetphi_sel_pt30"] ) )
+    mask_matched_pho_ele = (deltaR(phoeta, eleeta, phophi, elephi))    
+    mask_matched_pho_mu  = deltaR(phoeta, mueta, phophi, muphi)
+
+    mask_matched_pho = (mask_matched_pho_ele | mask_matched_pho_mu)
+    npho_cleaned     = phoeta[~mask_matched_pho].sum()
+    common_df["nphocleaned"] = npho_cleaned
+
     
     ## this syntax will choose the required data from the tuple of each object in each event. 
     ## two function at the moment are getFirstElement and getMinimum
@@ -187,87 +206,110 @@ for i in range (steps):
     ## this method is usually slow and should be avoided if possible, 
     ## but this is still much faster than usual pythonic lopp so must be preferred over loop. 
     
-    for ivar in ['recoil_Wmu1b','MT_Wmu1b','mueta','muid','muphi','mupt','recoilphi_Wmu1b', 'elept', 'eleeta', 'elephi', 'elelooseid', 'jetpt', 'jeteta', 'jetphi' ]:
+        
+    for ivar in ['recoil_Wmu1b','MT_Wmu1b','mueta','muid','muphi','mupt','recoilphi_Wmu1b', 'elept', 'eleeta', 'elephi', 'elelooseid', 'jetpt', 'jeteta', 'jetphi', 'recoil_We1b', 'recoilphi_We1b', 'MT_We1b'  ]:
         common_df[ivar] = common_df.apply(lambda x: getFirstElement(x[ivar]), axis=1)
         
         
     #dphi_jet_met1 = dphi_jet_met.choose(1)
     #common_df['dphi_jet_met'] = dphi_jet_met1
     #3.031477, 3.239381, 3.369493, 4.027412 
+    
     for ivar in ['dphi_jet_met']: 
         common_df[ivar] = common_df.apply(lambda x: getMinimum(x[ivar]), axis=1)
     
+    #print ("common_df.nJet30: ", common_df.nJet30==2)
     
     
     ## W(mu)+1b CR     
-    Wmunu1b_sel   =  common_df[(common_df.mettrig) & 
-                                (common_df.Nele==0) & 
-                                #(common_df.nPho==0) & 
-                                (common_df.dr_pho_mu_status==0) &
-                                (common_df.dr_pho_ele_status==0) &
-                                (common_df.nTau==0) & 
-                                (common_df.Nmu==1) & 
-                                (common_df.NmuLoose==1) &
-                                (common_df.recoil_Wmu1b>200.)  &
-                                (common_df.dphi_jet_met > 0.5) &
-                                (common_df.MT_Wmu1b>0) & (common_df.MT_Wmu1b<160) & 
-                                (common_df.nbjet_m==1) & 
-                                (common_df.nJet==1) &
-                                (common_df.nJet30==1)
-                                #(common_df.met>100.)
+    Wmunu1b_sel   =  common_df[(common_df.NeleLoose==0) & 
+                               (common_df.nphocleaned == 0) &
+                               (common_df.nTau==0) & 
+                               (common_df.Nmu==1) & 
+                               (common_df.NmuLoose==1) &
+                               (common_df.recoil_Wmu1b>200.)  &
+                               (common_df.dphi_jet_met > 0.5) &
+                               (common_df.MT_Wmu1b>0) & (common_df.MT_Wmu1b<160) & 
+                               (common_df.nbjet_m==1) & 
+                               (common_df.nJet==1) &
+                               (common_df.nJet30==1)
     ]
     
     
-    Wmunu2b_sel   =  common_df[(common_df.mettrig) &
-                                (common_df.Nele==0) &
-                                (common_df.nPho==0) &
-                                (common_df.nTau==0) &
-                                (common_df.Nmu==1) &
-                                (common_df.NmuLoose==1) &
-                                (common_df.recoil_Wmu1b>200.)  &
-                                (common_df.dphi_jet_met > 0.5) &
-                                (common_df.MT_Wmu1b>0) & (common_df.MT_Wmu1b<160) &
-                                (common_df.nbjet_m==2) &
-                                (common_df.nJet==2) & 
-                                (common_df.nJet30==1)
-                                #(common_df.met>100.)
+
+
+    Wmunu2b_sel   =  common_df[(common_df.NeleLoose==0) &
+                               (common_df.nphocleaned == 0) &
+                               (common_df.nTau==0) &
+                               (common_df.Nmu==1) &
+                               (common_df.NmuLoose==1) &
+                               (common_df.recoil_Wmu1b>200.)  &
+                               (common_df.dphi_jet_met > 0.5) &
+                               (common_df.MT_Wmu1b>0) & (common_df.MT_Wmu1b<160) &
+                               (common_df.nbjet_m==2) &
+                               (common_df.nJet>=1) & 
+                               (common_df.nJet30==2)
     ]
     
     
-    
-    Wenu1b_sel   =  common_df[(common_df.mettrig) & 
-                              (common_df.Nele==1) & 
-                              (common_df.dr_pho_mu_status==0) &
-                              (common_df.dr_pho_ele_status==0) &
+    Wenu1b_sel   =  common_df[(common_df.Nele==1) & 
+                              (common_df.NeleLoose==1) &
+                              (common_df.nphocleaned == 0) &
                               (common_df.nTau==0) & 
                               (common_df.NmuLoose==0) &
-                              (common_df.recoil_Wmu1b>200.)  &
+                              (common_df.recoil_We1b>200.)  &
                               (common_df.dphi_jet_met > 0.5) &
-                              (common_df.MT_Wmu1b>0) & (common_df.MT_Wmu1b<160) & 
+                              (common_df.MT_We1b>0) & (common_df.MT_We1b<160) & 
                               (common_df.nbjet_m==1) & 
                               (common_df.nJet==1) &
                               (common_df.nJet30==1)
-                              #(common_df.met>100.)
-                           ]
+                          ]
+
+
+    Wenu2b_sel   =  common_df[(common_df.Nele==1) & 
+                              (common_df.NeleLoose==1) &
+                              (common_df.nphocleaned == 0) &
+                              (common_df.nTau==0) & 
+                              (common_df.NmuLoose==0) &
+                              (common_df.recoil_We1b>200.)  &
+                              (common_df.dphi_jet_met > 0.5) &
+                              (common_df.MT_We1b>0) & (common_df.MT_We1b<160) & 
+                              (common_df.nbjet_m==2) & 
+                              (common_df.nJet>=1) &
+                              (common_df.nJet30==2)
+                          ]
     
-    import root_pandas 
+    
     
     df_total_wmunu1b = pd.concat([Wmunu1b_sel, df_total_wmunu1b])
     df_total_wmunu2b = pd.concat([Wmunu2b_sel, df_total_wmunu2b])
     
-    print (Wmunu1b_sel)
+    df_total_wenu1b  = pd.concat([Wenu1b_sel, df_total_wenu1b])
+    df_total_wenu2b  = pd.concat([Wenu2b_sel, df_total_wenu2b])
+
 end = time.clock()
 
-df_total_wmunu1b['weight'] = df_total_wmunu1b.apply( lambda x: weight_( x.recoil_Wmu1b, x.Nele, x.Nmu, x.mupt, x.mueta ),#, x.recoil_Wmu1b, x.recoil_Wmu1b, x.Nele, x.elept, x.eleeta, x.elelooseid, x.Nmu, x.mupt, x.mueta, x.muid), 
+df_total_wmunu1b['weight'] = df_total_wmunu1b.apply( lambda x: weight_( x.recoil_Wmu1b, x.Nele, x.Nmu, x.mupt, x.mueta ),
                                                      axis=1)
 
+import root_pandas 
 
-#df_total_wmunu1b['weight'] = df_total_wmunu1b.apply( lambda x: weight_(common_weight, ep_pfMetCorrPt, ep_ZmumuRecoil, ep_WmunuRecoil, nEle, ep_elePt, ep_eleEta, ep_eleIsPTight, nMu, ep_muPt, ep_muEta, ep_isTightMuon), 
-#                                                    axis=1)
+## We
+df_total_wenu1b.to_root("wmunu.root",key="crwenu1b")
+df_total_wenu2b.to_root("wmunu.root",key="crwenu2b",mode='a')
 
-print (df_total_wmunu1b)
-df_total_wmunu1b.to_root("wmunu.root",key="crwmunu1b")
+## Wmu 
+df_total_wmunu1b.to_root("wmunu.root",key="crwmunu1b",mode='a')
 df_total_wmunu2b.to_root("wmunu.root",key="crwmunu2b",mode='a')
 
 
+## Tope 
+
+## Topmu 
+
+## Zee
+
+## Zmumu
+
+## SR1 and SR2 
 print("%.4gs" % (end-start))
