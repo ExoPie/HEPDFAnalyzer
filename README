@@ -1,0 +1,39 @@
+mkdir dependencies 
+scl -l | grep python
+# choose the python 3 version from list
+scl enable rh-python36 bash 
+virtuaenv dependencies 
+cd dependencies
+source bin/activate 
+
+
+pip install uproot4 
+pip install awkward1 
+pip install matplotlib
+pip install --upgrade pip	
+pip install caffea  ## this is needed only for btag SF, once we have ROOT available in pyhon 3 in cmssw, we can skip this, and use the BTV, either is ok for us. 
+
+## if root is needed 
+. /cvmfs/sft.cern.ch/lcg/app/releases/ROOT/6.22.02/x86_64-centos7-gcc48-opt/bin/thisroot.sh
+
+## but this can't compile the BTag tool 
+
+''' 
+install anything from the list if needed 
+pip install matplotlib
+pip install --upgrade pip	
+pip install sklearn
+pip install xgboost
+pip install pandas
+pip install dask
+pip install root_numpy
+pip install rootpy
+pip install seaborn
+pip install tensorflow
+pip install numpy --upgrade
+pip install scipy --upgrade
+''' 
+
+
+source dependencies/bin/activate 
+. /cvmfs/sft.cern.ch/lcg/app/releases/ROOT/6.22.02/x86_64-centos7-gcc48-opt/bin/thisroot.sh
